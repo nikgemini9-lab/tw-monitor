@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Twitter Team Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0a0a0f; --surface: #111118; --surface2: #1a1a24; --surface3: #222230;
+  --border: #2a2a3a; --accent: #1d9bf0; --accent2: #7856ff;
+  --green: #00c07f; --red: #ff4d6a; --yellow: #ffb700;
+  --text: #e8e8f0; --muted: #6b6b80;
+  --font: 'Syne', sans-serif; --mono: 'DM Mono', monospace;
+  --radius: 14px;
+}
+body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+/* LAYOUT */
+.layout { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+.sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 28px 0; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+.main { padding: 36px 40px; overflow-y: auto; }
+
+/* SIDEBAR */
+.sidebar-logo { padding: 0 20px 28px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+.logo-row { display: flex; align-items: center; gap: 10px; }
+.logo-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.logo-text h1 { font-size: 15px; font-weight: 800; }
+.logo-text span { font-size: 11px; color: var(--muted); }
+
+.nav { padding: 0 10px; flex: 1; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--muted); margin-bottom: 2px; transition: all 0.15s; border: none; background: transparent; width: 100%; text-align: left; }
+.nav-item:hover { color: var(--text); background: var(--surface2); }
+.nav-item.active { color: var(--text); background: var(--surface2); }
+.nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+
+.sidebar-footer { padding: 16px 10px 0; border-top: 1px solid var(--border); margin-top: auto; }
+.status-chip { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; background: var(--surface2); font-size: 12px; font-family: var(--mono); color: var(--muted); cursor: pointer; transition: background 0.15s; }
+.status-chip:hover { background: var(--surface3); }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.dot-yellow { background: var(--yellow); animation: blink 1s infinite; }
+.dot-red { background: var(--red); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+.logout-btn { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; font-size: 13px; color: var(--muted); cursor: pointer; margin-top: 6px; transition: all 0.15s; border: none; background: transparent; width: 100%; font-family: var(--font); }
+.logout-btn:hover { color: var(--red); background: rgba(255,77,106,0.08); }
+
+/* PANELS */
+.panel { display: none; }
+.panel.active { display: block; animation: fadeUp 0.25s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+/* PAGE HEADER */
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; flex-wrap: wrap; gap: 12px; }
+.page-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+.page-sub { color: var(--muted); font-size: 13px; margin-top: 3px; font-family: var(--mono); }
+
+/* BUTTONS */
+.btn { padding: 10px 18px; border-radius: 10px; font-family: var(--font); font-weight: 700; font-size: 13px; cursor: pointer; border: none; transition: all 0.2s; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #1a8cd8; transform: translateY(-1px); }
+.btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.btn-danger-sm { background: transparent; border: 1px solid transparent; color: var(--muted); padding: 5px 10px; font-size: 12px; border-radius: 7px; font-family: var(--mono); cursor: pointer; }
+.btn-danger-sm:hover { border-color: var(--red); color: var(--red); background: rgba(255,77,106,0.08); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* STATS GRID */
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; position: relative; overflow: hidden; }
+.stat-card::after { content:''; position:absolute; inset:0; background: linear-gradient(135deg, transparent 60%, rgba(255,255,255,0.02)); pointer-events:none; }
+.stat-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.stat-label { font-size: 11px; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.stat-icon { font-size: 18px; opacity: 0.6; }
+.stat-value { font-size: 34px; font-weight: 800; letter-spacing: -1px; }
+.stat-card.blue .stat-value { color: var(--accent); }
+.stat-card.green .stat-value { color: var(--green); }
+.stat-card.yellow .stat-value { color: var(--yellow); }
+.stat-card.purple .stat-value { color: var(--accent2); }
+.stat-bar { height: 2px; background: var(--border); border-radius: 1px; margin-top: 14px; }
+.stat-bar-fill { height: 100%; border-radius: 1px; }
+.blue .stat-bar-fill { background: var(--accent); }
+.green .stat-bar-fill { background: var(--green); }
+.yellow .stat-bar-fill { background: var(--yellow); }
+.purple .stat-bar-fill { background: var(--accent2); }
+
+/* TABLE */
+.section-label { font-size: 11px; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; font-weight: 600; }
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.t-head { display: grid; padding: 11px 20px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 10px; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 1.2px; font-weight: 600; }
+.t-row { display: grid; padding: 15px 20px; border-bottom: 1px solid var(--border); align-items: center; transition: background 0.12s; }
+.t-row:last-child { border-bottom: none; }
+.t-row:hover { background: var(--surface2); }
+.cols-dashboard { grid-template-columns: 1.8fr 1.8fr 1fr 1fr 1fr 1.4fr; }
+.cols-setup { grid-template-columns: 2fr 2fr auto; }
+.cols-report { grid-template-columns: 1.5fr 1.8fr 1fr 1fr 1fr 1.4fr; }
+
+.handle { font-family: var(--mono); color: var(--accent); font-size: 13px; font-weight: 500; }
+.manager-name { font-size: 14px; font-weight: 600; }
+.num { font-family: var(--mono); font-size: 16px; font-weight: 600; }
+.num-green { color: var(--green); }
+.num-yellow { color: var(--yellow); }
+.num-purple { color: var(--accent2); }
+.timestamp { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.err-tag { font-family: var(--mono); font-size: 10px; color: var(--red); background: rgba(255,77,106,.1); border: 1px solid rgba(255,77,106,.2); padding: 2px 7px; border-radius: 4px; margin-top: 3px; display: inline-block; }
+
+.progress-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 5px; }
+.pf { height: 100%; border-radius: 2px; transition: width .5s ease; }
+.pf-green { background: var(--green); }
+.pf-yellow { background: var(--yellow); }
+
+.empty { text-align: center; padding: 56px; color: var(--muted); }
+.empty .e-icon { font-size: 36px; margin-bottom: 12px; opacity: .25; }
+.empty p { font-size: 14px; }
+
+/* FORM CARD */
+.form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 24px; }
+.form-grid { display: grid; gap: 14px; }
+.form-grid-2 { grid-template-columns: 1fr 1fr; }
+.form-grid-3 { grid-template-columns: 1fr 1fr auto; align-items: end; }
+.field label { display: block; font-size: 11px; font-family: var(--mono); color: var(--muted); letter-spacing: .5px; margin-bottom: 8px; }
+.field input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; color: var(--text); font-family: var(--mono); font-size: 14px; outline: none; transition: border-color .2s; }
+.field input:focus { border-color: var(--accent); }
+.field input::placeholder { color: var(--muted); }
+.field input[type=password] { letter-spacing: 3px; }
+
+.alert { border-radius: 10px; padding: 12px 16px; font-size: 13px; margin-bottom: 18px; border: 1px solid; line-height: 1.5; }
+.alert-warn { background: rgba(255,183,0,.07); border-color: rgba(255,183,0,.25); color: var(--yellow); }
+.alert-info { background: rgba(29,155,240,.07); border-color: rgba(29,155,240,.25); color: var(--accent); }
+.alert-success { background: rgba(0,192,127,.07); border-color: rgba(0,192,127,.25); color: var(--green); }
+
+/* REPORT CONTROLS */
+.report-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+input[type=date] { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 14px; color: var(--text); font-family: var(--mono); font-size: 13px; outline: none; cursor: pointer; }
+input[type=date]:focus { border-color: var(--accent); }
+input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: .4; }
+
+/* LOG PANEL */
+.log-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; font-family: var(--mono); font-size: 12px; color: var(--muted); max-height: 340px; overflow-y: auto; }
+.log-entry { padding: 4px 0; border-bottom: 1px solid var(--border); }
+.log-entry:last-child { border-bottom: none; }
+.log-entry.ok { color: var(--green); }
+.log-entry.err { color: var(--red); }
+
+/* TOAST */
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 20px; font-size: 14px; font-weight: 600; z-index: 999; transform: translateY(80px); opacity: 0; transition: all 0.3s cubic-bezier(.34,1.56,.64,1); max-width: 300px; }
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.ok { border-color: var(--green); }
+.toast.err { border-color: var(--red); }
+
+/* RESPONSIVE */
+@media(max-width:900px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { height: auto; flex-direction: row; flex-wrap: wrap; position: static; padding: 16px; border-right: none; border-bottom: 1px solid var(--border); }
+  .sidebar-logo { border-bottom: none; margin-bottom: 0; padding: 0 12px 0 0; border-right: 1px solid var(--border); margin-right: 12px; }
+  .nav { display: flex; padding: 0; flex: 0 0 auto; }
+  .sidebar-footer { border-top: none; margin: 0; padding: 0; margin-left: auto; }
+  .main { padding: 20px; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .cols-dashboard, .cols-report { grid-template-columns: 1.5fr 1fr 1fr 1fr; }
+  .cols-dashboard > *:nth-child(6), .cols-report > *:nth-child(6) { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-row">
+        <div class="logo-icon">𝕏</div>
+        <div class="logo-text"><h1>TW Monitor</h1><span>Agency Dashboard</span></div>
+      </div>
+    </div>
+    <nav class="nav">
+      <button class="nav-item active" onclick="showPanel('dashboard', this)"><span class="icon">📊</span> Dashboard</button>
+      <button class="nav-item" onclick="showPanel('report', this)"><span class="icon">📅</span> Reports</button>
+      <button class="nav-item" onclick="showPanel('settings', this)"><span class="icon">⚙️</span> Settings</button>
+      <button class="nav-item" onclick="showPanel('logs', this)"><span class="icon">🔍</span> Scrape Logs</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="status-chip" onclick="triggerScrape()" title="Click to scrape now">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Loading...</span>
+      </div>
+      <form method="POST" action="/logout" style="margin-top:4px">
+        <button class="logout-btn" type="submit">↩ Sign out</button>
+      </form>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div id="panel-dashboard" class="panel active">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Today's Activity</div>
+          <div class="page-sub" id="today-label">Loading...</div>
+        </div>
+        <button class="btn btn-ghost" onclick="triggerScrape()" id="scrape-btn">🔄 Refresh Now</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card blue">
+          <div class="stat-top"><span class="stat-label">Accounts</span><span class="stat-icon">🐦</span></div>
+          <div class="stat-value" id="s-accounts">—</div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:100%"></div></div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-top"><span class="stat-label">Tweets</span><span class="stat-icon">✍️</span></div>
+          <div class="stat-value" id="s-tweets">—</div>
+          <div class="stat-bar"><div class="stat-bar-fill" id="bar-tweets" style="width:0%"></div></div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-top"><span class="stat-label">Comments</span><span class="stat-icon">💬</span></div>
+          <div class="stat-value" id="s-comments">—</div>
+          <div class="stat-bar"><div class="stat-bar-fill" id="bar-comments" style="width:0%"></div></div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-top"><span class="stat-label">Total Actions</span><span class="stat-icon">⚡</span></div>
+          <div class="stat-value" id="s-total">—</div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:100%"></div></div>
+        </div>
+      </div>
+
+      <div class="section-label">Team Accounts</div>
+      <div class="table-wrap">
+        <div class="t-head cols-dashboard">
+          <span>Handle</span><span>Manager</span><span>Tweets</span><span>Comments</span><span>Total</span><span>Last Updated</span>
+        </div>
+        <div id="dashboard-body">
+          <div class="empty"><div class="e-icon">𝕏</div><p>No accounts yet — go to Settings to add some.</p></div>
+        </div>
+      </div>
+      <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:12px" id="next-scrape"></p>
+    </div>
+
+    <!-- REPORTS -->
+    <div id="panel-report" class="panel">
+      <div class="page-header">
+        <div><div class="page-title">Daily Reports</div><div class="page-sub">View any day's breakdown</div></div>
+      </div>
+      <div class="report-bar">
+        <input type="date" id="report-date" />
+        <button class="btn btn-primary" onclick="loadReport()">Generate</button>
+      </div>
+
+      <div class="stats-grid" style="margin-bottom:24px">
+        <div class="stat-card blue"><div class="stat-top"><span class="stat-label">Accounts</span></div><div class="stat-value" id="r-accounts">—</div></div>
+        <div class="stat-card green"><div class="stat-top"><span class="stat-label">Total Tweets</span></div><div class="stat-value" id="r-tweets">—</div></div>
+        <div class="stat-card yellow"><div class="stat-top"><span class="stat-label">Total Comments</span></div><div class="stat-value" id="r-comments">—</div></div>
+        <div class="stat-card purple"><div class="stat-top"><span class="stat-label">Total Actions</span></div><div class="stat-value" id="r-total">—</div></div>
+      </div>
+
+      <div class="section-label">Manager Breakdown</div>
+      <div class="table-wrap">
+        <div class="t-head cols-report">
+          <span>Handle</span><span>Manager</span><span>Tweets</span><span>Comments</span><span>Total</span><span>Share</span>
+        </div>
+        <div id="report-body"><div class="empty"><p>Select a date and click Generate.</p></div></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="panel-settings" class="panel">
+      <div class="page-header">
+        <div><div class="page-title">Settings</div><div class="page-sub">Configure accounts and credentials</div></div>
+      </div>
+
+      <!-- X Credentials -->
+      <div class="section-label">X Dummy Account (Scraper Login)</div>
+      <div class="form-card">
+        <div class="alert alert-warn">⚠️ Use a spare/dummy X account — not your main one. Stored securely on the server.</div>
+        <div class="form-grid form-grid-2" style="margin-bottom:14px">
+          <div class="field"><label>Username or Email</label><input type="text" id="cred-user" placeholder="@dummyaccount" /></div>
+          <div class="field"><label>Password</label><input type="password" id="cred-pass" placeholder="••••••••" /></div>
+        </div>
+        <button class="btn btn-primary" onclick="saveCredentials()">Save Credentials</button>
+        <span id="cred-status" style="margin-left:12px;font-size:13px;color:var(--muted);font-family:var(--mono)"></span>
+      </div>
+
+      <!-- Add Account -->
+      <div class="section-label">Add Account to Monitor</div>
+      <div class="form-card">
+        <div class="form-grid form-grid-3">
+          <div class="field"><label>Twitter Handle</label><input type="text" id="acc-handle" placeholder="@brandaccount" /></div>
+          <div class="field"><label>Managed By</label><input type="text" id="acc-manager" placeholder="Team member name" /></div>
+          <button class="btn btn-primary" onclick="addAccount()">+ Add</button>
+        </div>
+      </div>
+
+      <!-- Accounts List -->
+      <div class="section-label">Tracked Accounts</div>
+      <div class="table-wrap">
+        <div class="t-head cols-setup"><span>Handle</span><span>Manager</span><span></span></div>
+        <div id="settings-accounts"><div class="empty"><p>No accounts added yet.</p></div></div>
+      </div>
+    </div>
+
+    <!-- LOGS -->
+    <div id="panel-logs" class="panel">
+      <div class="page-header">
+        <div><div class="page-title">Scrape Logs</div><div class="page-sub">Live activity from the scraper</div></div>
+        <button class="btn btn-ghost" onclick="fetchStatus()">↺ Refresh</button>
+      </div>
+      <div class="section-label">Recent Activity</div>
+      <div class="log-box" id="log-box"><p style="color:var(--muted)">Loading logs...</p></div>
+    </div>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let statusData = {};
+let refreshTimer = null;
+
+// ── UTILS ──
+function today() { return new Date().toISOString().split('T')[0]; }
+
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = (type === 'ok' ? '✅ ' : '❌ ') + msg;
+  el.className = 'toast show ' + type;
+  setTimeout(() => el.className = 'toast', 3000);
+}
+
+function showPanel(name, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'report') { if (!document.getElementById('report-date').value) document.getElementById('report-date').value = today(); loadReport(); }
+  if (name === 'logs') fetchStatus();
+  if (name === 'settings') fetchConfig();
+}
+
+// ── STATUS / SCRAPER ──
+async function fetchStatus() {
+  try {
+    const res = await fetch('/api/status');
+    statusData = await res.json();
+    updateStatusUI();
+    renderLogs();
+  } catch(e) {
+    document.getElementById('status-text').textContent = 'Offline';
+    document.getElementById('status-dot').className = 'status-dot dot-red';
+  }
+}
+
+function updateStatusUI() {
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  if (statusData.isScraping) {
+    dot.className = 'status-dot dot-yellow';
+    txt.textContent = 'Scraping...';
+  } else if ((statusData.lastScrapeStatus || '').includes('Success')) {
+    dot.className = 'status-dot dot-green';
+    txt.textContent = 'Live ✓';
+  } else if (statusData.lastScrapeStatus === 'Not yet run') {
+    dot.className = 'status-dot dot-yellow';
+    txt.textContent = 'Starting...';
+  } else {
+    dot.className = 'status-dot dot-red';
+    txt.textContent = statusData.lastScrapeStatus || 'Error';
+  }
+
+  const nextEl = document.getElementById('next-scrape');
+  if (nextEl) {
+    if (statusData.lastScrapeTime) {
+      const t = new Date(statusData.lastScrapeTime);
+      const mins = 60 - new Date().getMinutes();
+      nextEl.textContent = `Last scraped at ${t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} · Next scrape in ~${mins} min`;
+    } else {
+      nextEl.textContent = 'Initial scrape running shortly after startup...';
+    }
+  }
+}
+
+function renderLogs() {
+  const box = document.getElementById('log-box');
+  if (!box) return;
+  const logs = statusData.log || [];
+  if (logs.length === 0) { box.innerHTML = '<p style="color:var(--muted)">No log entries yet.</p>'; return; }
+  box.innerHTML = logs.map(l => {
+    const cls = l.includes('❌') ? 'err' : l.includes('✅') ? 'ok' : '';
+    return `<div class="log-entry ${cls}">${l}</div>`;
+  }).join('');
+}
+
+async function triggerScrape() {
+  const btn = document.getElementById('scrape-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Scraping...'; }
+  await fetch('/api/scrape', { method: 'POST' });
+  toast('Scrape started — refreshing in 90s');
+  document.getElementById('status-dot').className = 'status-dot dot-yellow';
+  document.getElementById('status-text').textContent = 'Scraping...';
+  setTimeout(async () => {
+    await fetchAll();
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Refresh Now'; }
+  }, 90000);
+}
+
+// ── DASHBOARD ──
+async function fetchToday() {
+  const res = await fetch('/api/today');
+  const data = await res.json();
+
+  document.getElementById('today-label').textContent =
+    new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+  const rows = data.rows || [];
+  const totTweets = rows.reduce((s,r) => s + (r.tweets||0), 0);
+  const totComments = rows.reduce((s,r) => s + (r.comments||0), 0);
+  const grand = totTweets + totComments;
+
+  document.getElementById('s-accounts').textContent = rows.length;
+  document.getElementById('s-tweets').textContent = totTweets;
+  document.getElementById('s-comments').textContent = totComments;
+  document.getElementById('s-total').textContent = grand;
+
+  const maxVal = Math.max(totTweets, totComments, 1);
+  document.getElementById('bar-tweets').style.width = Math.round((totTweets/maxVal)*100) + '%';
+  document.getElementById('bar-comments').style.width = Math.round((totComments/maxVal)*100) + '%';
+
+  const body = document.getElementById('dashboard-body');
+  if (rows.length === 0) {
+    body.innerHTML = '<div class="empty"><div class="e-icon">𝕏</div><p>No accounts tracked yet. Go to Settings.</p></div>';
+    return;
+  }
+  body.innerHTML = rows.sort((a,b)=>((b.tweets||0)+(b.comments||0))-((a.tweets||0)+(a.comments||0))).map(r => {
+    const tw = r.tweets||0, cm = r.comments||0, tot = tw+cm;
+    const ts = r.lastUpdated ? new Date(r.lastUpdated).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '—';
+    const errTag = r.error ? `<div class="err-tag">⚠ error</div>` : '';
+    return `<div class="t-row cols-dashboard">
+      <span class="handle">${r.handle}</span>
+      <span class="manager-name">${r.manager}</span>
+      <span class="num num-green">${tw}</span>
+      <span class="num num-yellow">${cm}</span>
+      <span class="num num-purple">${tot}</span>
+      <div class="timestamp">${ts}${errTag}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── REPORT ──
+async function loadReport() {
+  const date = document.getElementById('report-date').value || today();
+  const res = await fetch('/api/report/' + date);
+  const rows = await res.json();
+
+  const totTw = rows.reduce((s,r)=>s+(r.tweets||0),0);
+  const totCm = rows.reduce((s,r)=>s+(r.comments||0),0);
+  const grand = totTw+totCm;
+  const maxTot = Math.max(...rows.map(r=>(r.tweets||0)+(r.comments||0)),1);
+
+  document.getElementById('r-accounts').textContent = rows.length;
+  document.getElementById('r-tweets').textContent = totTw;
+  document.getElementById('r-comments').textContent = totCm;
+  document.getElementById('r-total').textContent = grand;
+
+  const body = document.getElementById('report-body');
+  if (rows.length === 0 || grand === 0) {
+    body.innerHTML = '<div class="empty"><p>No data for this date.</p></div>';
+    return;
+  }
+  body.innerHTML = rows.sort((a,b)=>((b.tweets||0)+(b.comments||0))-((a.tweets||0)+(a.comments||0))).map(r => {
+    const tw=r.tweets||0, cm=r.comments||0, tot=tw+cm;
+    const tPct=Math.round((tw/maxTot)*100), cPct=Math.round((cm/maxTot)*100);
+    const share = grand>0 ? Math.round((tot/grand)*100) : 0;
+    return `<div class="t-row cols-report">
+      <span class="handle">${r.handle}</span>
+      <span class="manager-name">${r.manager}</span>
+      <div><span class="num num-green">${tw}</span><div class="progress-bar"><div class="pf pf-green" style="width:${tPct}%"></div></div></div>
+      <div><span class="num num-yellow">${cm}</span><div class="progress-bar"><div class="pf pf-yellow" style="width:${cPct}%"></div></div></div>
+      <span class="num num-purple">${tot}</span>
+      <span style="font-family:var(--mono);font-size:13px;color:var(--muted)">${share}%</span>
+    </div>`;
+  }).join('');
+}
+
+// ── SETTINGS ──
+async function fetchConfig() {
+  const res = await fetch('/api/config');
+  const config = await res.json();
+  if (config.hasCredentials) {
+    document.getElementById('cred-status').textContent = '✓ Credentials saved';
+    document.getElementById('cred-status').style.color = 'var(--green)';
+  }
+  const body = document.getElementById('settings-accounts');
+  if (!config.accounts || config.accounts.length === 0) {
+    body.innerHTML = '<div class="empty"><p>No accounts added yet.</p></div>';
+    return;
+  }
+  body.innerHTML = config.accounts.map(a => `
+    <div class="t-row cols-setup">
+      <span class="handle">${a.handle}</span>
+      <span class="manager-name">${a.manager}</span>
+      <button class="btn-danger-sm" onclick="removeAccount('${a.handle}')">Remove</button>
+    </div>`).join('');
+}
+
+async function saveCredentials() {
+  const username = document.getElementById('cred-user').value.trim();
+  const password = document.getElementById('cred-pass').value.trim();
+  if (!username || !password) { toast('Fill in both fields', 'err'); return; }
+  const res = await fetch('/api/credentials', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username,password}) });
+  if (res.ok) {
+    toast('Credentials saved!');
+    document.getElementById('cred-pass').value = '';
+    document.getElementById('cred-status').textContent = '✓ Saved';
+    document.getElementById('cred-status').style.color = 'var(--green)';
+  } else toast('Failed to save', 'err');
+}
+
+async function addAccount() {
+  const handle = document.getElementById('acc-handle').value.trim();
+  const manager = document.getElementById('acc-manager').value.trim();
+  if (!handle || !manager) { toast('Fill in both fields', 'err'); return; }
+  const res = await fetch('/api/accounts', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({handle,manager}) });
+  const data = await res.json();
+  if (res.ok) {
+    toast(`${handle} added!`);
+    document.getElementById('acc-handle').value = '';
+    document.getElementById('acc-manager').value = '';
+    fetchConfig();
+    fetchToday();
+  } else toast(data.error || 'Failed', 'err');
+}
+
+async function removeAccount(handle) {
+  if (!confirm(`Remove ${handle}?`)) return;
+  await fetch('/api/accounts/' + encodeURIComponent(handle), { method:'DELETE' });
+  toast('Removed');
+  fetchConfig();
+  fetchToday();
+}
+
+// ── INIT ──
+async function fetchAll() {
+  await Promise.all([fetchStatus(), fetchToday()]);
+}
+
+document.getElementById('report-date').value = today();
+fetchAll();
+setInterval(fetchAll, 30000);
+</script>
+</body>
+</html>
