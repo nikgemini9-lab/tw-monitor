@@ -1,17 +1,20 @@
-const express = require('express');
-const puppeteer = require('puppeteer');
-const fs = require('fs');
-const path = require('path');
-const cron = require('node-cron');
-const session = require('express-session');
-const bcrypt = require('bcryptjs');
+import express from 'express';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import cron from 'node-cron';
+import session from 'express-session';
+import { Rettiwt } from 'rettiwt-api';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DATA_FILE = path.join(__dirname, 'data', 'data.json');
-const CONFIG_FILE = path.join(__dirname, 'data', 'config.json');
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+const DATA_FILE = path.join(DATA_DIR, 'data.json');
+const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 
-// Dashboard password — set via env var DASHBOARD_PASSWORD, fallback to 'admin123'
 const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || 'admin123';
 
 app.use(express.json());
@@ -20,13 +23,10 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'twmonitor-secret-key-change-me',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 } // 7 days
+  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 },
 }));
 
-// Ensure data dir exists
-if (!fs.existsSync(path.join(__dirname, 'data'))) {
-  fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
-}
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // ── HELPERS ──────────────────────────────────────────────
 function loadData() {
@@ -36,12 +36,19 @@ function loadData() {
 function saveData(d) { fs.writeFileSync(DATA_FILE, JSON.stringify(d, null, 2)); }
 
 function loadConfig() {
-  if (!fs.existsSync(CONFIG_FILE)) return { accounts: [], xUsername: '', xPassword: '' };
-  try { return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch { return { accounts: [], xUsername: '', xPassword: '' }; }
+  if (!fs.existsSync(CONFIG_FILE)) return { accounts: [], apiKey: '' };
+  try { return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch { return { accounts: [], apiKey: '' }; }
 }
 function saveConfig(c) { fs.writeFileSync(CONFIG_FILE, JSON.stringify(c, null, 2)); }
 
 function todayKey() { return new Date().toISOString().split('T')[0]; }
+
+function todayRange() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+  return { start, end };
+}
 
 // ── AUTH MIDDLEWARE ──────────────────────────────────────────────
 function requireAuth(req, res, next) {
@@ -50,168 +57,109 @@ function requireAuth(req, res, next) {
   res.redirect('/login');
 }
 
-// ── SCRAPER ──────────────────────────────────────────────
-let browser = null;
-let isLoggedIn = false;
-let isScraping = false;
-let lastScrapeTime = null;
-let lastScrapeStatus = 'Not yet run';
-let scrapeLog = [];
+// ── FETCHER ──────────────────────────────────────────────
+let isFetching = false;
+let lastFetchTime = null;
+let lastFetchStatus = 'Not yet run';
+let fetchLog = [];
 
 function addLog(msg) {
   const entry = `[${new Date().toLocaleTimeString()}] ${msg}`;
   console.log(entry);
-  scrapeLog.unshift(entry);
-  if (scrapeLog.length > 50) scrapeLog.pop();
+  fetchLog.unshift(entry);
+  if (fetchLog.length > 100) fetchLog.pop();
 }
 
-async function getBrowser() {
-  if (browser && browser.isConnected()) return browser;
-  addLog('Launching browser...');
-  browser = await puppeteer.launch({
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-blink-features=AutomationControlled',
-      '--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    ]
-  });
-  isLoggedIn = false;
-  return browser;
-}
-
-async function loginToX(page, username, password) {
-  addLog(`Logging into X as ${username}...`);
-  await page.goto('https://x.com/login', { waitUntil: 'networkidle2', timeout: 30000 });
-  await new Promise(r => setTimeout(r, 2000));
-
-  await page.waitForSelector('input[autocomplete="username"]', { timeout: 10000 });
-  await page.type('input[autocomplete="username"]', username, { delay: 80 });
-  await page.keyboard.press('Enter');
-  await new Promise(r => setTimeout(r, 2500));
-
-  // Handle possible extra verification step
-  const allInputs = await page.$$('input');
-  for (const input of allInputs) {
-    const name = await input.evaluate(el => el.getAttribute('name'));
-    if (name === 'text') {
-      await input.type(username, { delay: 80 });
-      await page.keyboard.press('Enter');
-      await new Promise(r => setTimeout(r, 2000));
-      break;
-    }
-  }
-
-  await page.waitForSelector('input[name="password"]', { timeout: 10000 });
-  await page.type('input[name="password"]', password, { delay: 80 });
-  await page.keyboard.press('Enter');
-  await new Promise(r => setTimeout(r, 4000));
-
-  const url = page.url();
-  if (!url.includes('login')) {
-    addLog('✅ Login successful');
-    return true;
-  }
-  throw new Error('Login failed — check X credentials in Settings');
-}
-
-async function scrapeProfile(page, handle) {
+async function fetchAccountStats(handle, apiKey) {
   const clean = handle.replace('@', '');
-  addLog(`Scraping @${clean}...`);
-  await page.goto(`https://x.com/${clean}`, { waitUntil: 'networkidle2', timeout: 30000 });
-  await new Promise(r => setTimeout(r, 3000));
+  addLog(`Fetching @${clean}...`);
 
-  const notFound = await page.$('[data-testid="emptyState"]');
-  if (notFound) throw new Error('Profile not found');
+  const rettiwt = new Rettiwt({ apiKey });
+  const { start, end } = todayRange();
 
-  const todayStr = todayKey();
-  let tweets = 0, comments = 0;
-  let prevHeight = 0;
+  let tweets = 0, replies = 0;
+  let cursor = undefined;
+  let pages = 0;
+  const MAX_PAGES = 10; // safety limit
 
-  for (let scroll = 0; scroll < 10; scroll++) {
-    const result = await page.evaluate((d) => {
-      const articles = Array.from(document.querySelectorAll('article[data-testid="tweet"]'));
-      let t = 0, c = 0, hitOld = false;
-      for (const a of articles) {
-        const timeEl = a.querySelector('time');
-        if (!timeEl) continue;
-        const date = (timeEl.getAttribute('datetime') || '').split('T')[0];
-        if (date < d) { hitOld = true; break; }
-        if (date !== d) continue;
-        if ((a.innerText || '').includes('Replying to')) c++; else t++;
-      }
-      return { t, c, hitOld };
-    }, todayStr);
+  do {
+    const result = await rettiwt.tweet.search(
+      { fromUsers: [clean], startDate: start, endDate: end },
+      20,
+      cursor
+    );
 
-    tweets = result.t;
-    comments = result.c;
-    if (result.hitOld) break;
+    if (!result || !result.list || result.list.length === 0) break;
 
-    const newH = await page.evaluate(() => { window.scrollBy(0, 1500); return document.body.scrollHeight; });
-    await new Promise(r => setTimeout(r, 2000));
-    if (newH === prevHeight) break;
-    prevHeight = newH;
-  }
+    for (const tweet of result.list) {
+      if (tweet.replyTo) replies++;
+      else tweets++;
+    }
 
-  addLog(`  @${clean}: ${tweets} tweets, ${comments} comments`);
-  return { tweets, comments };
+    cursor = result.next?.value || result.next || null;
+    pages++;
+  } while (cursor && pages < MAX_PAGES);
+
+  addLog(`  @${clean}: ${tweets} tweets, ${replies} replies`);
+  return { tweets, replies };
 }
 
-async function runScrape() {
-  if (isScraping) { addLog('Scrape already running, skipping'); return; }
+async function runFetch() {
+  if (isFetching) { addLog('Fetch already running, skipping'); return; }
   const config = loadConfig();
-  if (!config.accounts || config.accounts.length === 0) { lastScrapeStatus = 'No accounts configured'; return; }
-  if (!config.xUsername) { lastScrapeStatus = 'No X credentials configured'; return; }
+  if (!config.accounts || config.accounts.length === 0) {
+    lastFetchStatus = 'No accounts configured';
+    addLog('No accounts configured — skipping');
+    return;
+  }
+  if (!config.apiKey) {
+    lastFetchStatus = 'No API key configured';
+    addLog('No Rettiwt API key — skipping');
+    return;
+  }
 
-  isScraping = true;
-  lastScrapeStatus = 'Running...';
-  addLog('=== Starting hourly scrape ===');
+  isFetching = true;
+  lastFetchStatus = 'Running...';
+  addLog('=== Starting fetch ===');
 
-  try {
-    const b = await getBrowser();
-    const page = await b.newPage();
-    await page.setViewport({ width: 1280, height: 800 });
-    await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
+  const data = loadData();
+  const today = todayKey();
+  if (!data[today]) data[today] = {};
 
-    if (!isLoggedIn) {
-      await loginToX(page, config.xUsername, config.xPassword);
-      isLoggedIn = true;
-    }
-
-    const data = loadData();
-    const today = todayKey();
-    if (!data[today]) data[today] = {};
-
-    let errors = 0;
-    for (const acc of config.accounts) {
-      try {
-        const r = await scrapeProfile(page, acc.handle);
-        data[today][acc.handle] = { manager: acc.manager, tweets: r.tweets, comments: r.comments, lastUpdated: new Date().toISOString(), error: null };
+  let errors = 0;
+  for (const acc of config.accounts) {
+    try {
+      const r = await fetchAccountStats(acc.handle, config.apiKey);
+      data[today][acc.handle] = {
+        manager: acc.manager,
+        tweets: r.tweets,
+        replies: r.replies,
+        lastUpdated: new Date().toISOString(),
+        error: null,
+      };
+      saveData(data);
+      // small delay between accounts to avoid rate limiting
+      await new Promise(r => setTimeout(r, 2000));
+    } catch (e) {
+      addLog(`❌ Error on ${acc.handle}: ${e.message}`);
+      errors++;
+      if (!data[today][acc.handle]) {
+        data[today][acc.handle] = {
+          manager: acc.manager,
+          tweets: 0,
+          replies: 0,
+          lastUpdated: null,
+          error: e.message,
+        };
         saveData(data);
-        await new Promise(r => setTimeout(r, 3000));
-      } catch (e) {
-        addLog(`❌ Error on ${acc.handle}: ${e.message}`);
-        errors++;
-        if (!data[today][acc.handle]) {
-          data[today][acc.handle] = { manager: acc.manager, tweets: 0, comments: 0, lastUpdated: null, error: e.message };
-          saveData(data);
-        }
       }
     }
-
-    await page.close();
-    lastScrapeTime = new Date().toISOString();
-    lastScrapeStatus = errors > 0 ? `Done with ${errors} error(s)` : 'Success ✅';
-    addLog(`=== Scrape complete (${errors} errors) ===`);
-  } catch (e) {
-    addLog(`❌ Scrape failed: ${e.message}`);
-    lastScrapeStatus = 'Failed: ' + e.message;
-    isLoggedIn = false;
-  } finally {
-    isScraping = false;
   }
+
+  isFetching = false;
+  lastFetchTime = new Date().toISOString();
+  lastFetchStatus = errors > 0 ? `Done with ${errors} error(s)` : 'Success ✅';
+  addLog(`=== Fetch complete (${errors} errors) ===`);
 }
 
 // ── AUTH ROUTES ──────────────────────────────────────────────
@@ -266,7 +214,7 @@ app.post('/logout', (req, res) => {
   res.redirect('/login');
 });
 
-// ── PROTECTED STATIC ──────────────────────────────────────────────
+// ── PROTECTED ROUTES ──────────────────────────────────────────────
 app.use(requireAuth);
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -274,10 +222,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/api/status', (req, res) => {
   const config = loadConfig();
   res.json({
-    isScraping, lastScrapeTime, lastScrapeStatus, isLoggedIn,
+    isFetching,
+    lastFetchTime,
+    lastFetchStatus,
     accountCount: (config.accounts || []).length,
-    hasCredentials: !!config.xUsername,
-    log: scrapeLog.slice(0, 20),
+    hasApiKey: !!config.apiKey,
+    log: fetchLog.slice(0, 30),
   });
 });
 
@@ -289,7 +239,7 @@ app.get('/api/today', (req, res) => {
   const rows = (config.accounts || []).map(a => ({
     handle: a.handle,
     manager: a.manager,
-    ...(todayData[a.handle] || { tweets: 0, comments: 0, lastUpdated: null, error: null }),
+    ...(todayData[a.handle] || { tweets: 0, replies: 0, lastUpdated: null, error: null }),
   }));
   res.json({ date: today, rows });
 });
@@ -299,25 +249,24 @@ app.get('/api/report/:date', (req, res) => {
   const config = loadConfig();
   const d = data[req.params.date] || {};
   const rows = (config.accounts || []).map(a => ({
-    handle: a.handle, manager: a.manager,
-    ...(d[a.handle] || { tweets: 0, comments: 0 }),
+    handle: a.handle,
+    manager: a.manager,
+    ...(d[a.handle] || { tweets: 0, replies: 0 }),
   }));
   res.json(rows);
 });
 
 app.get('/api/config', (req, res) => {
   const config = loadConfig();
-  res.json({ accounts: config.accounts || [], hasCredentials: !!config.xUsername, xUsername: config.xUsername ? '****' : '' });
+  res.json({ accounts: config.accounts || [], hasApiKey: !!config.apiKey });
 });
 
-app.post('/api/credentials', (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Both fields required' });
+app.post('/api/apikey', (req, res) => {
+  const { apiKey } = req.body;
+  if (!apiKey || !apiKey.trim()) return res.status(400).json({ error: 'API key required' });
   const config = loadConfig();
-  config.xUsername = username;
-  config.xPassword = password;
+  config.apiKey = apiKey.trim();
   saveConfig(config);
-  isLoggedIn = false;
   res.json({ success: true });
 });
 
@@ -333,23 +282,39 @@ app.post('/api/accounts', (req, res) => {
   res.json({ success: true });
 });
 
-app.delete('/api/accounts/:handle', (req, res) => {
+app.patch('/api/accounts/:handle', (req, res) => {
+  const { manager } = req.body;
+  if (!manager) return res.status(400).json({ error: 'Manager required' });
   const config = loadConfig();
-  config.accounts = (config.accounts || []).filter(a => a.handle.toLowerCase() !== decodeURIComponent(req.params.handle).toLowerCase());
+  const handle = decodeURIComponent(req.params.handle).toLowerCase();
+  config.accounts = (config.accounts || []).map(a =>
+    a.handle.toLowerCase() === handle ? { ...a, manager } : a
+  );
   saveConfig(config);
   res.json({ success: true });
 });
 
-app.post('/api/scrape', (req, res) => {
+app.delete('/api/accounts/:handle', (req, res) => {
+  const config = loadConfig();
+  config.accounts = (config.accounts || []).filter(
+    a => a.handle.toLowerCase() !== decodeURIComponent(req.params.handle).toLowerCase()
+  );
+  saveConfig(config);
   res.json({ success: true });
-  runScrape();
+});
+
+app.post('/api/fetch', (req, res) => {
+  res.json({ success: true });
+  runFetch();
 });
 
 // ── START ──────────────────────────────────────────────
 app.listen(PORT, () => {
   addLog(`Server started on port ${PORT}`);
-  console.log(`\n🐦 Twitter Monitor → http://localhost:${PORT}\n`);
+  console.log(`\n𝕏 Twitter Monitor → http://localhost:${PORT}\n`);
 });
 
-cron.schedule('0 * * * *', () => { addLog('Hourly cron triggered'); runScrape(); });
-setTimeout(() => runScrape(), 8000);
+// Fetch every hour at :00
+cron.schedule('0 * * * *', () => { addLog('Hourly cron triggered'); runFetch(); });
+// Initial fetch 10s after startup
+setTimeout(() => runFetch(), 10000);

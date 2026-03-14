@@ -85,6 +85,18 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); min-
 .yellow .stat-bar-fill { background: var(--yellow); }
 .purple .stat-bar-fill { background: var(--accent2); }
 
+/* TEAM CARDS GRID */
+.team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 28px; }
+.team-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+.team-card-name { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.team-card-accounts { font-size: 11px; font-family: var(--mono); color: var(--muted); margin-bottom: 14px; }
+.team-card-stats { display: flex; gap: 16px; }
+.tc-stat { }
+.tc-stat-val { font-size: 22px; font-weight: 800; }
+.tc-stat-lbl { font-size: 10px; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 1px; }
+.tc-tweets .tc-stat-val { color: var(--green); }
+.tc-replies .tc-stat-val { color: var(--yellow); }
+
 /* TABLE */
 .section-label { font-size: 11px; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; font-weight: 600; }
 .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
@@ -120,15 +132,17 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); min-
 .form-grid-2 { grid-template-columns: 1fr 1fr; }
 .form-grid-3 { grid-template-columns: 1fr 1fr auto; align-items: end; }
 .field label { display: block; font-size: 11px; font-family: var(--mono); color: var(--muted); letter-spacing: .5px; margin-bottom: 8px; }
-.field input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; color: var(--text); font-family: var(--mono); font-size: 14px; outline: none; transition: border-color .2s; }
-.field input:focus { border-color: var(--accent); }
+.field input, .field select { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; color: var(--text); font-family: var(--mono); font-size: 14px; outline: none; transition: border-color .2s; }
+.field select { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b6b80' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+.field input:focus, .field select:focus { border-color: var(--accent); }
 .field input::placeholder { color: var(--muted); }
-.field input[type=password] { letter-spacing: 3px; }
+.field select option { background: var(--surface2); }
 
 .alert { border-radius: 10px; padding: 12px 16px; font-size: 13px; margin-bottom: 18px; border: 1px solid; line-height: 1.5; }
 .alert-warn { background: rgba(255,183,0,.07); border-color: rgba(255,183,0,.25); color: var(--yellow); }
 .alert-info { background: rgba(29,155,240,.07); border-color: rgba(29,155,240,.25); color: var(--accent); }
 .alert-success { background: rgba(0,192,127,.07); border-color: rgba(0,192,127,.25); color: var(--green); }
+.alert a { color: inherit; }
 
 /* REPORT CONTROLS */
 .report-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
@@ -137,7 +151,7 @@ input[type=date]:focus { border-color: var(--accent); }
 input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: .4; }
 
 /* LOG PANEL */
-.log-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; font-family: var(--mono); font-size: 12px; color: var(--muted); max-height: 340px; overflow-y: auto; }
+.log-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; font-family: var(--mono); font-size: 12px; color: var(--muted); max-height: 400px; overflow-y: auto; }
 .log-entry { padding: 4px 0; border-bottom: 1px solid var(--border); }
 .log-entry:last-child { border-bottom: none; }
 .log-entry.ok { color: var(--green); }
@@ -148,6 +162,10 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); opacity
 .toast.show { transform: translateY(0); opacity: 1; }
 .toast.ok { border-color: var(--green); }
 .toast.err { border-color: var(--red); }
+
+/* EDIT ROW */
+.edit-select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; color: var(--text); font-family: var(--mono); font-size: 12px; outline: none; cursor: pointer; }
+.edit-select:focus { border-color: var(--accent); }
 
 /* RESPONSIVE */
 @media(max-width:900px) {
@@ -160,6 +178,7 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); opacity
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .cols-dashboard, .cols-report { grid-template-columns: 1.5fr 1fr 1fr 1fr; }
   .cols-dashboard > *:nth-child(6), .cols-report > *:nth-child(6) { display: none; }
+  .team-grid { grid-template-columns: 1fr 1fr; }
 }
 </style>
 </head>
@@ -175,12 +194,13 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); opacity
     </div>
     <nav class="nav">
       <button class="nav-item active" onclick="showPanel('dashboard', this)"><span class="icon">📊</span> Dashboard</button>
+      <button class="nav-item" onclick="showPanel('team', this)"><span class="icon">👥</span> Team</button>
       <button class="nav-item" onclick="showPanel('report', this)"><span class="icon">📅</span> Reports</button>
       <button class="nav-item" onclick="showPanel('settings', this)"><span class="icon">⚙️</span> Settings</button>
-      <button class="nav-item" onclick="showPanel('logs', this)"><span class="icon">🔍</span> Scrape Logs</button>
+      <button class="nav-item" onclick="showPanel('logs', this)"><span class="icon">🔍</span> Logs</button>
     </nav>
     <div class="sidebar-footer">
-      <div class="status-chip" onclick="triggerScrape()" title="Click to scrape now">
+      <div class="status-chip" onclick="triggerFetch()" title="Click to fetch now">
         <div class="status-dot" id="status-dot"></div>
         <span id="status-text">Loading...</span>
       </div>
@@ -200,7 +220,7 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); opacity
           <div class="page-title">Today's Activity</div>
           <div class="page-sub" id="today-label">Loading...</div>
         </div>
-        <button class="btn btn-ghost" onclick="triggerScrape()" id="scrape-btn">🔄 Refresh Now</button>
+        <button class="btn btn-ghost" onclick="triggerFetch()" id="fetch-btn">🔄 Refresh Now</button>
       </div>
 
       <div class="stats-grid">
@@ -215,9 +235,9 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); opacity
           <div class="stat-bar"><div class="stat-bar-fill" id="bar-tweets" style="width:0%"></div></div>
         </div>
         <div class="stat-card yellow">
-          <div class="stat-top"><span class="stat-label">Comments</span><span class="stat-icon">💬</span></div>
-          <div class="stat-value" id="s-comments">—</div>
-          <div class="stat-bar"><div class="stat-bar-fill" id="bar-comments" style="width:0%"></div></div>
+          <div class="stat-top"><span class="stat-label">Replies</span><span class="stat-icon">💬</span></div>
+          <div class="stat-value" id="s-replies">—</div>
+          <div class="stat-bar"><div class="stat-bar-fill" id="bar-replies" style="width:0%"></div></div>
         </div>
         <div class="stat-card purple">
           <div class="stat-top"><span class="stat-label">Total Actions</span><span class="stat-icon">⚡</span></div>
@@ -226,16 +246,27 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); opacity
         </div>
       </div>
 
-      <div class="section-label">Team Accounts</div>
+      <div class="section-label">Account Breakdown</div>
       <div class="table-wrap">
         <div class="t-head cols-dashboard">
-          <span>Handle</span><span>Manager</span><span>Tweets</span><span>Comments</span><span>Total</span><span>Last Updated</span>
+          <span>Handle</span><span>Manager</span><span>Tweets</span><span>Replies</span><span>Total</span><span>Last Updated</span>
         </div>
         <div id="dashboard-body">
           <div class="empty"><div class="e-icon">𝕏</div><p>No accounts yet — go to Settings to add some.</p></div>
         </div>
       </div>
-      <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:12px" id="next-scrape"></p>
+      <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:12px" id="next-fetch"></p>
+    </div>
+
+    <!-- TEAM VIEW -->
+    <div id="panel-team" class="panel">
+      <div class="page-header">
+        <div><div class="page-title">Team Overview</div><div class="page-sub">Today's stats per team member</div></div>
+        <button class="btn btn-ghost" onclick="triggerFetch()">🔄 Refresh</button>
+      </div>
+      <div class="team-grid" id="team-grid">
+        <div class="empty" style="grid-column:1/-1"><p>Loading...</p></div>
+      </div>
     </div>
 
     <!-- REPORTS -->
@@ -251,14 +282,14 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); opacity
       <div class="stats-grid" style="margin-bottom:24px">
         <div class="stat-card blue"><div class="stat-top"><span class="stat-label">Accounts</span></div><div class="stat-value" id="r-accounts">—</div></div>
         <div class="stat-card green"><div class="stat-top"><span class="stat-label">Total Tweets</span></div><div class="stat-value" id="r-tweets">—</div></div>
-        <div class="stat-card yellow"><div class="stat-top"><span class="stat-label">Total Comments</span></div><div class="stat-value" id="r-comments">—</div></div>
+        <div class="stat-card yellow"><div class="stat-top"><span class="stat-label">Total Replies</span></div><div class="stat-value" id="r-replies">—</div></div>
         <div class="stat-card purple"><div class="stat-top"><span class="stat-label">Total Actions</span></div><div class="stat-value" id="r-total">—</div></div>
       </div>
 
-      <div class="section-label">Manager Breakdown</div>
+      <div class="section-label">Account Breakdown</div>
       <div class="table-wrap">
         <div class="t-head cols-report">
-          <span>Handle</span><span>Manager</span><span>Tweets</span><span>Comments</span><span>Total</span><span>Share</span>
+          <span>Handle</span><span>Manager</span><span>Tweets</span><span>Replies</span><span>Total</span><span>Share</span>
         </div>
         <div id="report-body"><div class="empty"><p>Select a date and click Generate.</p></div></div>
       </div>
@@ -267,27 +298,42 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); opacity
     <!-- SETTINGS -->
     <div id="panel-settings" class="panel">
       <div class="page-header">
-        <div><div class="page-title">Settings</div><div class="page-sub">Configure accounts and credentials</div></div>
+        <div><div class="page-title">Settings</div><div class="page-sub">API key and account configuration</div></div>
       </div>
 
-      <!-- X Credentials -->
-      <div class="section-label">X Dummy Account (Scraper Login)</div>
+      <!-- API Key -->
+      <div class="section-label">Rettiwt API Key</div>
       <div class="form-card">
-        <div class="alert alert-warn">⚠️ Use a spare/dummy X account — not your main one. Stored securely on the server.</div>
-        <div class="form-grid form-grid-2" style="margin-bottom:14px">
-          <div class="field"><label>Username or Email</label><input type="text" id="cred-user" placeholder="@dummyaccount" /></div>
-          <div class="field"><label>Password</label><input type="password" id="cred-pass" placeholder="••••••••" /></div>
+        <div class="alert alert-info">
+          ℹ️ Get your API key by installing the
+          <a href="https://chromewebstore.google.com/detail/x-auth-helper/..." target="_blank" style="text-decoration:underline">X Auth Helper</a>
+          Chrome extension → click "Get API Key" → paste it below. The key lasts 5 years.
         </div>
-        <button class="btn btn-primary" onclick="saveCredentials()">Save Credentials</button>
-        <span id="cred-status" style="margin-left:12px;font-size:13px;color:var(--muted);font-family:var(--mono)"></span>
+        <div class="form-grid" style="margin-bottom:14px">
+          <div class="field"><label>API Key</label><input type="password" id="api-key-input" placeholder="Paste your Rettiwt API key here" /></div>
+        </div>
+        <button class="btn btn-primary" onclick="saveApiKey()">Save API Key</button>
+        <span id="apikey-status" style="margin-left:12px;font-size:13px;color:var(--muted);font-family:var(--mono)"></span>
       </div>
 
       <!-- Add Account -->
       <div class="section-label">Add Account to Monitor</div>
       <div class="form-card">
         <div class="form-grid form-grid-3">
-          <div class="field"><label>Twitter Handle</label><input type="text" id="acc-handle" placeholder="@brandaccount" /></div>
-          <div class="field"><label>Managed By</label><input type="text" id="acc-manager" placeholder="Team member name" /></div>
+          <div class="field">
+            <label>Twitter Handle</label>
+            <input type="text" id="acc-handle" placeholder="@brandaccount" />
+          </div>
+          <div class="field">
+            <label>Managed By</label>
+            <select id="acc-manager">
+              <option value="">Select manager...</option>
+              <option value="Tarun">Tarun</option>
+              <option value="Sasanka">Sasanka</option>
+              <option value="Sukhman">Sukhman</option>
+              <option value="Shub">Shub</option>
+            </select>
+          </div>
           <button class="btn btn-primary" onclick="addAccount()">+ Add</button>
         </div>
       </div>
@@ -303,7 +349,7 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); opacity
     <!-- LOGS -->
     <div id="panel-logs" class="panel">
       <div class="page-header">
-        <div><div class="page-title">Scrape Logs</div><div class="page-sub">Live activity from the scraper</div></div>
+        <div><div class="page-title">Fetch Logs</div><div class="page-sub">Live activity from the fetcher</div></div>
         <button class="btn btn-ghost" onclick="fetchStatus()">↺ Refresh</button>
       </div>
       <div class="section-label">Recent Activity</div>
@@ -316,8 +362,10 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); opacity
 <div class="toast" id="toast"></div>
 
 <script>
+const TEAM_MEMBERS = ['Tarun', 'Sasanka', 'Sukhman', 'Shub'];
+
 let statusData = {};
-let refreshTimer = null;
+let todayRows = [];
 
 // ── UTILS ──
 function today() { return new Date().toISOString().split('T')[0]; }
@@ -326,7 +374,7 @@ function toast(msg, type = 'ok') {
   const el = document.getElementById('toast');
   el.textContent = (type === 'ok' ? '✅ ' : '❌ ') + msg;
   el.className = 'toast show ' + type;
-  setTimeout(() => el.className = 'toast', 3000);
+  setTimeout(() => el.className = 'toast', 3500);
 }
 
 function showPanel(name, btn) {
@@ -337,16 +385,17 @@ function showPanel(name, btn) {
   if (name === 'report') { if (!document.getElementById('report-date').value) document.getElementById('report-date').value = today(); loadReport(); }
   if (name === 'logs') fetchStatus();
   if (name === 'settings') fetchConfig();
+  if (name === 'team') renderTeam();
 }
 
-// ── STATUS / SCRAPER ──
+// ── STATUS ──
 async function fetchStatus() {
   try {
     const res = await fetch('/api/status');
     statusData = await res.json();
     updateStatusUI();
     renderLogs();
-  } catch(e) {
+  } catch {
     document.getElementById('status-text').textContent = 'Offline';
     document.getElementById('status-dot').className = 'status-dot dot-red';
   }
@@ -355,28 +404,28 @@ async function fetchStatus() {
 function updateStatusUI() {
   const dot = document.getElementById('status-dot');
   const txt = document.getElementById('status-text');
-  if (statusData.isScraping) {
+  if (statusData.isFetching) {
     dot.className = 'status-dot dot-yellow';
-    txt.textContent = 'Scraping...';
-  } else if ((statusData.lastScrapeStatus || '').includes('Success')) {
+    txt.textContent = 'Fetching...';
+  } else if ((statusData.lastFetchStatus || '').includes('Success')) {
     dot.className = 'status-dot dot-green';
     txt.textContent = 'Live ✓';
-  } else if (statusData.lastScrapeStatus === 'Not yet run') {
+  } else if (statusData.lastFetchStatus === 'Not yet run') {
     dot.className = 'status-dot dot-yellow';
     txt.textContent = 'Starting...';
   } else {
     dot.className = 'status-dot dot-red';
-    txt.textContent = statusData.lastScrapeStatus || 'Error';
+    txt.textContent = statusData.lastFetchStatus || 'Error';
   }
 
-  const nextEl = document.getElementById('next-scrape');
+  const nextEl = document.getElementById('next-fetch');
   if (nextEl) {
-    if (statusData.lastScrapeTime) {
-      const t = new Date(statusData.lastScrapeTime);
+    if (statusData.lastFetchTime) {
+      const t = new Date(statusData.lastFetchTime);
       const mins = 60 - new Date().getMinutes();
-      nextEl.textContent = `Last scraped at ${t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} · Next scrape in ~${mins} min`;
+      nextEl.textContent = `Last fetched at ${t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} · Next fetch in ~${mins} min`;
     } else {
-      nextEl.textContent = 'Initial scrape running shortly after startup...';
+      nextEl.textContent = 'Initial fetch running shortly after startup...';
     }
   }
 }
@@ -385,64 +434,116 @@ function renderLogs() {
   const box = document.getElementById('log-box');
   if (!box) return;
   const logs = statusData.log || [];
-  if (logs.length === 0) { box.innerHTML = '<p style="color:var(--muted)">No log entries yet.</p>'; return; }
+  if (!logs.length) { box.innerHTML = '<p style="color:var(--muted)">No log entries yet.</p>'; return; }
   box.innerHTML = logs.map(l => {
     const cls = l.includes('❌') ? 'err' : l.includes('✅') ? 'ok' : '';
-    return `<div class="log-entry ${cls}">${l}</div>`;
+    return `<div class="log-entry ${cls}">${escHtml(l)}</div>`;
   }).join('');
 }
 
-async function triggerScrape() {
-  const btn = document.getElementById('scrape-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Scraping...'; }
-  await fetch('/api/scrape', { method: 'POST' });
-  toast('Scrape started — refreshing in 90s');
+async function triggerFetch() {
+  const btn = document.getElementById('fetch-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Fetching...'; }
+  await fetch('/api/fetch', { method: 'POST' });
+  toast('Fetch started — auto-refresh in 60s');
   document.getElementById('status-dot').className = 'status-dot dot-yellow';
-  document.getElementById('status-text').textContent = 'Scraping...';
+  document.getElementById('status-text').textContent = 'Fetching...';
   setTimeout(async () => {
     await fetchAll();
     if (btn) { btn.disabled = false; btn.textContent = '🔄 Refresh Now'; }
-  }, 90000);
+  }, 60000);
 }
 
 // ── DASHBOARD ──
 async function fetchToday() {
   const res = await fetch('/api/today');
   const data = await res.json();
+  todayRows = data.rows || [];
 
   document.getElementById('today-label').textContent =
     new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
 
-  const rows = data.rows || [];
-  const totTweets = rows.reduce((s,r) => s + (r.tweets||0), 0);
-  const totComments = rows.reduce((s,r) => s + (r.comments||0), 0);
-  const grand = totTweets + totComments;
+  const totTweets = todayRows.reduce((s,r) => s + (r.tweets||0), 0);
+  const totReplies = todayRows.reduce((s,r) => s + (r.replies||0), 0);
+  const grand = totTweets + totReplies;
 
-  document.getElementById('s-accounts').textContent = rows.length;
+  document.getElementById('s-accounts').textContent = todayRows.length;
   document.getElementById('s-tweets').textContent = totTweets;
-  document.getElementById('s-comments').textContent = totComments;
+  document.getElementById('s-replies').textContent = totReplies;
   document.getElementById('s-total').textContent = grand;
 
-  const maxVal = Math.max(totTweets, totComments, 1);
+  const maxVal = Math.max(totTweets, totReplies, 1);
   document.getElementById('bar-tweets').style.width = Math.round((totTweets/maxVal)*100) + '%';
-  document.getElementById('bar-comments').style.width = Math.round((totComments/maxVal)*100) + '%';
+  document.getElementById('bar-replies').style.width = Math.round((totReplies/maxVal)*100) + '%';
 
   const body = document.getElementById('dashboard-body');
-  if (rows.length === 0) {
+  if (!todayRows.length) {
     body.innerHTML = '<div class="empty"><div class="e-icon">𝕏</div><p>No accounts tracked yet. Go to Settings.</p></div>';
     return;
   }
-  body.innerHTML = rows.sort((a,b)=>((b.tweets||0)+(b.comments||0))-((a.tweets||0)+(a.comments||0))).map(r => {
-    const tw = r.tweets||0, cm = r.comments||0, tot = tw+cm;
-    const ts = r.lastUpdated ? new Date(r.lastUpdated).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '—';
-    const errTag = r.error ? `<div class="err-tag">⚠ error</div>` : '';
-    return `<div class="t-row cols-dashboard">
-      <span class="handle">${r.handle}</span>
-      <span class="manager-name">${r.manager}</span>
-      <span class="num num-green">${tw}</span>
-      <span class="num num-yellow">${cm}</span>
-      <span class="num num-purple">${tot}</span>
-      <div class="timestamp">${ts}${errTag}</div>
+  body.innerHTML = [...todayRows]
+    .sort((a,b) => ((b.tweets||0)+(b.replies||0)) - ((a.tweets||0)+(a.replies||0)))
+    .map(r => {
+      const tw = r.tweets||0, rp = r.replies||0, tot = tw+rp;
+      const ts = r.lastUpdated ? new Date(r.lastUpdated).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '—';
+      const errTag = r.error ? `<div class="err-tag">⚠ error</div>` : '';
+      return `<div class="t-row cols-dashboard">
+        <span class="handle">${escHtml(r.handle)}</span>
+        <span class="manager-name">${escHtml(r.manager)}</span>
+        <span class="num num-green">${tw}</span>
+        <span class="num num-yellow">${rp}</span>
+        <span class="num num-purple">${tot}</span>
+        <div class="timestamp">${ts}${errTag}</div>
+      </div>`;
+    }).join('');
+
+  renderTeam();
+}
+
+// ── TEAM VIEW ──
+function renderTeam() {
+  const grid = document.getElementById('team-grid');
+  if (!grid) return;
+  if (!todayRows.length) {
+    grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>No accounts yet. Go to Settings.</p></div>';
+    return;
+  }
+
+  // Group by manager
+  const byManager = {};
+  for (const r of todayRows) {
+    const m = r.manager || 'Unassigned';
+    if (!byManager[m]) byManager[m] = { accounts: [], tweets: 0, replies: 0 };
+    byManager[m].accounts.push(r.handle);
+    byManager[m].tweets += r.tweets || 0;
+    byManager[m].replies += r.replies || 0;
+  }
+
+  // Show all team members even if they have no accounts yet
+  const allMembers = new Set([...TEAM_MEMBERS, ...Object.keys(byManager)]);
+
+  grid.innerHTML = [...allMembers].map(name => {
+    const d = byManager[name] || { accounts: [], tweets: 0, replies: 0 };
+    const acctLabel = d.accounts.length
+      ? d.accounts.join(', ')
+      : '<span style="color:var(--muted)">No accounts assigned</span>';
+    return `<div class="team-card">
+      <div class="team-card-name">${escHtml(name)}</div>
+      <div class="team-card-accounts">${acctLabel}</div>
+      <div class="team-card-stats">
+        <div class="tc-stat tc-tweets">
+          <div class="tc-stat-val">${d.tweets}</div>
+          <div class="tc-stat-lbl">Tweets</div>
+        </div>
+        <div class="tc-stat tc-replies">
+          <div class="tc-stat-val">${d.replies}</div>
+          <div class="tc-stat-lbl">Replies</div>
+        </div>
+        <div class="tc-stat" style="margin-left:auto;text-align:right">
+          <div class="tc-stat-val" style="color:var(--accent2)">${d.tweets + d.replies}</div>
+          <div class="tc-stat-lbl">Total</div>
+        </div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -454,74 +555,82 @@ async function loadReport() {
   const rows = await res.json();
 
   const totTw = rows.reduce((s,r)=>s+(r.tweets||0),0);
-  const totCm = rows.reduce((s,r)=>s+(r.comments||0),0);
-  const grand = totTw+totCm;
-  const maxTot = Math.max(...rows.map(r=>(r.tweets||0)+(r.comments||0)),1);
+  const totRp = rows.reduce((s,r)=>s+(r.replies||0),0);
+  const grand = totTw + totRp;
+  const maxTot = Math.max(...rows.map(r=>(r.tweets||0)+(r.replies||0)), 1);
 
   document.getElementById('r-accounts').textContent = rows.length;
   document.getElementById('r-tweets').textContent = totTw;
-  document.getElementById('r-comments').textContent = totCm;
+  document.getElementById('r-replies').textContent = totRp;
   document.getElementById('r-total').textContent = grand;
 
   const body = document.getElementById('report-body');
-  if (rows.length === 0 || grand === 0) {
+  if (!rows.length || grand === 0) {
     body.innerHTML = '<div class="empty"><p>No data for this date.</p></div>';
     return;
   }
-  body.innerHTML = rows.sort((a,b)=>((b.tweets||0)+(b.comments||0))-((a.tweets||0)+(a.comments||0))).map(r => {
-    const tw=r.tweets||0, cm=r.comments||0, tot=tw+cm;
-    const tPct=Math.round((tw/maxTot)*100), cPct=Math.round((cm/maxTot)*100);
-    const share = grand>0 ? Math.round((tot/grand)*100) : 0;
-    return `<div class="t-row cols-report">
-      <span class="handle">${r.handle}</span>
-      <span class="manager-name">${r.manager}</span>
-      <div><span class="num num-green">${tw}</span><div class="progress-bar"><div class="pf pf-green" style="width:${tPct}%"></div></div></div>
-      <div><span class="num num-yellow">${cm}</span><div class="progress-bar"><div class="pf pf-yellow" style="width:${cPct}%"></div></div></div>
-      <span class="num num-purple">${tot}</span>
-      <span style="font-family:var(--mono);font-size:13px;color:var(--muted)">${share}%</span>
-    </div>`;
-  }).join('');
+  body.innerHTML = [...rows]
+    .sort((a,b) => ((b.tweets||0)+(b.replies||0)) - ((a.tweets||0)+(a.replies||0)))
+    .map(r => {
+      const tw=r.tweets||0, rp=r.replies||0, tot=tw+rp;
+      const tPct=Math.round((tw/maxTot)*100), rPct=Math.round((rp/maxTot)*100);
+      const share = grand>0 ? Math.round((tot/grand)*100) : 0;
+      return `<div class="t-row cols-report">
+        <span class="handle">${escHtml(r.handle)}</span>
+        <span class="manager-name">${escHtml(r.manager)}</span>
+        <div><span class="num num-green">${tw}</span><div class="progress-bar"><div class="pf pf-green" style="width:${tPct}%"></div></div></div>
+        <div><span class="num num-yellow">${rp}</span><div class="progress-bar"><div class="pf pf-yellow" style="width:${rPct}%"></div></div></div>
+        <span class="num num-purple">${tot}</span>
+        <span style="font-family:var(--mono);font-size:13px;color:var(--muted)">${share}%</span>
+      </div>`;
+    }).join('');
 }
 
 // ── SETTINGS ──
 async function fetchConfig() {
   const res = await fetch('/api/config');
   const config = await res.json();
-  if (config.hasCredentials) {
-    document.getElementById('cred-status').textContent = '✓ Credentials saved';
-    document.getElementById('cred-status').style.color = 'var(--green)';
+  if (config.hasApiKey) {
+    document.getElementById('apikey-status').textContent = '✓ API key saved';
+    document.getElementById('apikey-status').style.color = 'var(--green)';
   }
+
   const body = document.getElementById('settings-accounts');
-  if (!config.accounts || config.accounts.length === 0) {
+  if (!config.accounts || !config.accounts.length) {
     body.innerHTML = '<div class="empty"><p>No accounts added yet.</p></div>';
     return;
   }
+  const opts = TEAM_MEMBERS.map(m => `<option value="${m}">${m}</option>`).join('');
   body.innerHTML = config.accounts.map(a => `
     <div class="t-row cols-setup">
-      <span class="handle">${a.handle}</span>
-      <span class="manager-name">${a.manager}</span>
-      <button class="btn-danger-sm" onclick="removeAccount('${a.handle}')">Remove</button>
+      <span class="handle">${escHtml(a.handle)}</span>
+      <span>
+        <select class="edit-select" onchange="changeManager('${escHtml(a.handle)}', this.value)">
+          ${TEAM_MEMBERS.map(m => `<option value="${m}"${m === a.manager ? ' selected' : ''}>${m}</option>`).join('')}
+        </select>
+      </span>
+      <button class="btn-danger-sm" onclick="removeAccount('${escHtml(a.handle)}')">Remove</button>
     </div>`).join('');
 }
 
-async function saveCredentials() {
-  const username = document.getElementById('cred-user').value.trim();
-  const password = document.getElementById('cred-pass').value.trim();
-  if (!username || !password) { toast('Fill in both fields', 'err'); return; }
-  const res = await fetch('/api/credentials', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username,password}) });
+async function saveApiKey() {
+  const apiKey = document.getElementById('api-key-input').value.trim();
+  if (!apiKey) { toast('Paste your API key first', 'err'); return; }
+  const res = await fetch('/api/apikey', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ apiKey }) });
   if (res.ok) {
-    toast('Credentials saved!');
-    document.getElementById('cred-pass').value = '';
-    document.getElementById('cred-status').textContent = '✓ Saved';
-    document.getElementById('cred-status').style.color = 'var(--green)';
+    toast('API key saved!');
+    document.getElementById('api-key-input').value = '';
+    document.getElementById('apikey-status').textContent = '✓ Saved';
+    document.getElementById('apikey-status').style.color = 'var(--green)';
   } else toast('Failed to save', 'err');
 }
 
 async function addAccount() {
   const handle = document.getElementById('acc-handle').value.trim();
-  const manager = document.getElementById('acc-manager').value.trim();
-  if (!handle || !manager) { toast('Fill in both fields', 'err'); return; }
-  const res = await fetch('/api/accounts', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({handle,manager}) });
+  const manager = document.getElementById('acc-manager').value;
+  if (!handle) { toast('Enter a Twitter handle', 'err'); return; }
+  if (!manager) { toast('Select a manager', 'err'); return; }
+  const res = await fetch('/api/accounts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ handle, manager }) });
   const data = await res.json();
   if (res.ok) {
     toast(`${handle} added!`);
@@ -532,12 +641,27 @@ async function addAccount() {
   } else toast(data.error || 'Failed', 'err');
 }
 
+async function changeManager(handle, manager) {
+  const res = await fetch('/api/accounts/' + encodeURIComponent(handle), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ manager })
+  });
+  if (res.ok) { toast(`${handle} → ${manager}`); fetchToday(); }
+  else toast('Failed to update', 'err');
+}
+
 async function removeAccount(handle) {
   if (!confirm(`Remove ${handle}?`)) return;
-  await fetch('/api/accounts/' + encodeURIComponent(handle), { method:'DELETE' });
+  await fetch('/api/accounts/' + encodeURIComponent(handle), { method: 'DELETE' });
   toast('Removed');
   fetchConfig();
   fetchToday();
+}
+
+// ── XSS HELPER ──
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ── INIT ──
