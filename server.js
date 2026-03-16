@@ -203,7 +203,7 @@ async function runFetch() {
   const accounts = await getAccounts();
   if (!accounts.length) { lastFetchStatus = 'No accounts configured'; addLog('No accounts — skipping'); return; }
 
-  const apiKey = await getConfig('rettiwt_api_key');
+  const apiKey = process.env.RETTIWT_API_KEY || await getConfig('rettiwt_api_key');
   if (!apiKey) { lastFetchStatus = 'No API key configured'; addLog('No API key — skipping'); return; }
 
   isFetching = true;
@@ -278,7 +278,7 @@ app.get('/api/report/:date', async (req, res) => {
 
 app.get('/api/config', async (req, res) => {
   const accounts = await getAccounts();
-  const hasApiKey = !!(await getConfig('rettiwt_api_key'));
+  const hasApiKey = !!(process.env.RETTIWT_API_KEY || await getConfig('rettiwt_api_key'));
   res.json({ accounts, hasApiKey });
 });
 
