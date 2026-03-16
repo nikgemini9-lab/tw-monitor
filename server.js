@@ -174,7 +174,7 @@ function todayRange() {
 async function fetchAccountStats(handle, apiKey) {
   const clean = handle.replace('@', '');
   addLog(`Fetching @${clean}...`);
-  const rettiwt = new Rettiwt({ apiKey });
+  const rettiwt = new Rettiwt({ apiKey, maxRetries: 5 });
   const { start, end } = todayRange();
 
   let tweets = 0, replies = 0, cursor = undefined, pages = 0;
