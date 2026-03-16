@@ -105,10 +105,11 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); min-
 .t-row:last-child { border-bottom: none; }
 .t-row:hover { background: var(--surface2); }
 .cols-dashboard { grid-template-columns: 1.8fr 1.8fr 1fr 1fr 1fr 1.4fr; }
-.cols-setup { grid-template-columns: 2fr 2fr auto; }
+.cols-setup { grid-template-columns: 2fr 2fr 1fr auto; }
 .cols-report { grid-template-columns: 1.5fr 1.8fr 1fr 1fr 1fr 1.4fr; }
 
-.handle { font-family: var(--mono); color: var(--accent); font-size: 13px; font-weight: 500; }
+.handle { font-family: var(--mono); color: var(--accent); font-size: 13px; font-weight: 500; text-decoration: none; }
+a.handle:hover { text-decoration: underline; }
 .manager-name { font-size: 14px; font-weight: 600; }
 .num { font-family: var(--mono); font-size: 16px; font-weight: 600; }
 .num-green { color: var(--green); }
@@ -341,7 +342,7 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); opacity
       <!-- Accounts List -->
       <div class="section-label">Tracked Accounts</div>
       <div class="table-wrap">
-        <div class="t-head cols-setup"><span>Handle</span><span>Manager</span><span></span></div>
+        <div class="t-head cols-setup"><span>Handle</span><span>Manager</span><span>Status</span><span></span></div>
         <div id="settings-accounts"><div class="empty"><p>No accounts added yet.</p></div></div>
       </div>
     </div>
@@ -486,9 +487,10 @@ async function fetchToday() {
     .map(r => {
       const tw = r.tweets||0, rp = r.replies||0, tot = tw+rp;
       const ts = r.lastUpdated ? new Date(r.lastUpdated).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '—';
-      const errTag = r.error ? `<div class="err-tag">⚠ error</div>` : '';
+      const errTag = r.error ? `<div class="err-tag">✕ ${escHtml(r.error)}</div>` : '';
+      const clean = r.handle.replace('@', '');
       return `<div class="t-row cols-dashboard">
-        <span class="handle">${escHtml(r.handle)}</span>
+        <a class="handle" href="https://x.com/${escHtml(clean)}" target="_blank" rel="noopener">${escHtml(r.handle)}</a>
         <span class="manager-name">${escHtml(r.manager)}</span>
         <span class="num num-green">${tw}</span>
         <span class="num num-yellow">${rp}</span>
@@ -525,7 +527,7 @@ function renderTeam() {
   grid.innerHTML = [...allMembers].map(name => {
     const d = byManager[name] || { accounts: [], tweets: 0, replies: 0 };
     const acctLabel = d.accounts.length
-      ? d.accounts.join(', ')
+      ? d.accounts.map(h => `<a class="handle" href="https://x.com/${escHtml(h.replace('@',''))}" target="_blank" rel="noopener">${escHtml(h)}</a>`).join(' ')
       : '<span style="color:var(--muted)">No accounts assigned</span>';
     return `<div class="team-card">
       <div class="team-card-name">${escHtml(name)}</div>
@@ -575,8 +577,9 @@ async function loadReport() {
       const tw=r.tweets||0, rp=r.replies||0, tot=tw+rp;
       const tPct=Math.round((tw/maxTot)*100), rPct=Math.round((rp/maxTot)*100);
       const share = grand>0 ? Math.round((tot/grand)*100) : 0;
+      const clean = r.handle.replace('@', '');
       return `<div class="t-row cols-report">
-        <span class="handle">${escHtml(r.handle)}</span>
+        <a class="handle" href="https://x.com/${escHtml(clean)}" target="_blank" rel="noopener">${escHtml(r.handle)}</a>
         <span class="manager-name">${escHtml(r.manager)}</span>
         <div><span class="num num-green">${tw}</span><div class="progress-bar"><div class="pf pf-green" style="width:${tPct}%"></div></div></div>
         <div><span class="num num-yellow">${rp}</span><div class="progress-bar"><div class="pf pf-yellow" style="width:${rPct}%"></div></div></div>
@@ -600,17 +603,26 @@ async function fetchConfig() {
     body.innerHTML = '<div class="empty"><p>No accounts added yet.</p></div>';
     return;
   }
-  const opts = TEAM_MEMBERS.map(m => `<option value="${m}">${m}</option>`).join('');
-  body.innerHTML = config.accounts.map(a => `
+  body.innerHTML = config.accounts.map(a => {
+    const row = todayRows.find(r => r.handle === a.handle);
+    const statusCell = row?.error
+      ? `<span class="err-tag">✕ ${escHtml(row.error)}</span>`
+      : row?.lastUpdated
+        ? `<span style="font-family:var(--mono);font-size:11px;color:var(--green)">✓ ok</span>`
+        : `<span style="font-family:var(--mono);font-size:11px;color:var(--muted)">—</span>`;
+    const clean = a.handle.replace('@', '');
+    return `
     <div class="t-row cols-setup">
-      <span class="handle">${escHtml(a.handle)}</span>
+      <a class="handle" href="https://x.com/${escHtml(clean)}" target="_blank" rel="noopener">${escHtml(a.handle)}</a>
       <span>
         <select class="edit-select" onchange="changeManager('${escHtml(a.handle)}', this.value)">
           ${TEAM_MEMBERS.map(m => `<option value="${m}"${m === a.manager ? ' selected' : ''}>${m}</option>`).join('')}
         </select>
       </span>
+      ${statusCell}
       <button class="btn-danger-sm" onclick="removeAccount('${escHtml(a.handle)}')">Remove</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 async function saveApiKey() {
